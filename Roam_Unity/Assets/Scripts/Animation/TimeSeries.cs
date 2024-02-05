@@ -479,12 +479,12 @@ public class TimeSeries {
 			UltiDraw.DrawGUIFunctions(new Vector2(0.875f, 0.875f), new Vector2(0.2f, 0.1f), functions, 0f, 1f, 0.0025f, UltiDraw.DarkGrey, UltiDraw.GetRainbowColors(Actions.Length), 0.0025f, UltiDraw.Black);
 			UltiDraw.DrawGUIRectangle(new Vector2(0.875f, 0.875f), new Vector2(0.005f, 0.1f), UltiDraw.White.Transparent(0.5f));
 
-			for(int i=0; i<TimeSeries.KeyCount; i++) {
-				float size = Utility.Normalise((float)i / (float)(TimeSeries.KeyCount-1), 0f, 1f, 0.5f, 1f);
-				Matrix4x4 transformation = Transformations[TimeSeries.GetKey(i).Index];	
-				UltiDraw.DrawWiredSphere(transformation.GetPosition(), Quaternion.LookRotation(transformation.GetForward(), Vector3.up), size*0.2f, UltiDraw.Magenta.Transparent(0.5f), UltiDraw.Black);
-				UltiDraw.DrawTranslateGizmo(transformation.GetPosition(), Quaternion.LookRotation(transformation.GetForward(), Vector3.up), size*0.4f);
-			}
+			// for(int i=0; i<TimeSeries.KeyCount; i++) {
+			// 	float size = Utility.Normalise((float)i / (float)(TimeSeries.KeyCount-1), 0f, 1f, 0.5f, 1f);
+			// 	Matrix4x4 transformation = Transformations[TimeSeries.GetKey(i).Index];	
+			// 	UltiDraw.DrawWiredSphere(transformation.GetPosition(), Quaternion.LookRotation(transformation.GetForward(), Vector3.up), size*0.2f, UltiDraw.Magenta.Transparent(0.5f), UltiDraw.Black);
+			// 	UltiDraw.DrawTranslateGizmo(transformation.GetPosition(), Quaternion.LookRotation(transformation.GetForward(), Vector3.up), size*0.4f);
+			// }
 			UltiDraw.End();
 		}
 
