@@ -3,6 +3,8 @@
 
 ![Alt Text](ROAM_3DV_thumbnail.gif)
 
+This repostory contains code and data instructions for [ROAM: Robust and Object-aware Motion Generation using Neural Pose Descriptors](https://vcai.mpi-inf.mpg.de/projects/ROAM/).
+
 # Setup Instruction
 ## Step 1: Clone the Repository
 ```
@@ -32,17 +34,23 @@ pip install .
 
 # Data Instruction
 You do not need to download any data to run our Unity demo. 
-However, if you would like to
-- re-train l-NSM using our preprocessed data, please download *.zip from [ROAM dataset](), unzip it and put the folder in data/
-- have access to our raw motion data in BVH format, please download *.zip from [ROAM dataset](), unzip it and put the folder in data/
-- use preprocessed motion capture assets in Unity, please download *.zip from [ROAM dataset](), unzip it and put the folder MotionCapture in Roam_Unity/Assets/
+However, if you would like to retrain l-NSM model, re-process the data or optimizes goal poses, please download the respective zip files from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS) following the instructions below. 
+```
+mkdir data
+```
 
-If you want to run our Goal Pose Optimization module, please download a subset of shapenet dataset with occupancy labels.
-Only the chair (ID: 03001627) and sofa (ID: 04256520) categories are used in the method.
-- download preprocessed data from [occupancy network](https://github.com/autonomousvision/occupancy_networks) and rename the folder as shapenet_pointnet
-- download [ShapeNet V1](https://shapenet.org/download/shapenetcore) for the corresponding meshes needed for visualization; rename the folder as shapenet_mesh
-- If you want to process reference poses for NDF optimization, please download *.zip from [ROAM dataset](), unzip it and put it under the data folder.
-Inside data/ndf_data/ref_motion, there is a blender file which contains reference poses and objects for visualization and reference pose selection. 
+If you would like to
+- re-train l-NSM using our preprocessed data, please download l_nsm_data_processed.zip from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS), unzip it and put the folder in data/ 
+- use preprocessed motion capture assets in Unity, please download MotionCapture.zip from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS), unzip it and put the folder MotionCapture in Roam_Unity/Assets/
+- download our raw motion data in BVH format, please download 	
+mocap_raw_data.zip from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS)
+
+To run our Goal Pose Optimization module, please download the reference poses, objects and a subset of shapenet dataset with occupancy labels.
+Only the chair (ID: 03001627) and sofa (ID: 04256520) categories are used in the paper.
+- To select reference poses for NDF optimization, please download ndf_data.zip from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS), unzip it and put it under the data folder. Inside data/ndf_data/ref_motion, there is a blender file which contains reference poses and objects for visualization and reference pose selection. 
+- download preprocessed data from [occupancy network](https://github.com/autonomousvision/occupancy_networks) and rename the folder as shapenet_pointnet and put it under data/ndf_data/
+- download [ShapeNet V1](https://shapenet.org/download/shapenetcore) for the corresponding meshes needed for visualization; rename the folder as shapenet_mesh and put it under data/ndf_data/
+
 
 Overall, The file structure should look like: 
 ```
@@ -79,7 +87,6 @@ Open the Demo Scene (Roam_Unity -> Assets -> Scenes -> RoamDemo.unity).
 We provide both high-level and low-level modes. 
 
 In the high-level mode, the pipeline runs automatically after hitting the Play button with randomly sampled novel objects from the test set as well as optimized poses from randomly sampled reference poses. 
-This the same challenging setting which we used in the quantitative evaluation. 
 
 To enable low-level mode, please disable the HighLevel option from the Roam_Demo interface and enable the LowLevel object collections. 
 - Hit the Play button.
@@ -89,7 +96,7 @@ To enable low-level mode, please disable the HighLevel option from the Roam_Demo
 
 
 ### Motion Re-export
-If you want to visualize the annotated motion capture assets or re-export the motion as txt files for l-NSM training, please make sure you have downloaded download  [.zip]() following the instruction from Data Instruction.
+If you want to visualize the annotated motion capture assets or re-export the motion as txt files for l-NSM training, please make sure you have downloaded download [MotionCapture.zip](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS) following the instruction from Data Instruction.
 
 The folder structure should look like:
 ```
@@ -162,7 +169,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 # Citation
 ```
-@article{zhang2023roam,
+@article{zhang2024roam,
     title = {ROAM: Robust and Object-aware Motion Generation using Neural Pose Descriptors},
     author = {Zhang, Wanyue and Dabral, Rishabh and Leimk{\"u}hler, Thomas and Golyanik, Vladislav and Habermann, Marc and Theobalt, Christian},
     year = {2024},
