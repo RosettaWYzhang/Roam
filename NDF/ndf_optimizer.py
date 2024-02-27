@@ -111,12 +111,9 @@ class Ndf_optimizer:
 
     def joint_floor_loss(self, joint_y):
         # this loss penalize < floor level joint positions
-        loss = torch.tensor(0).cuda().float()
-        for i in joint_y:
-            if i < 0:
-                loss += (i)**2
-        return loss 
-
+        negative_positions = joint_y[joint_y < 0]
+        loss = (negative_positions**2).sum()  
+        return loss
 
     def reset_loss_weight(self, loss_weight):
         ''''set weight = 1 for every joint
