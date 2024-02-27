@@ -1,0 +1,8 @@
+numpy == 1.23.3         
+onnx == 1.12.0               
+open3d == 0.16.0                        
+scikit-learn == 1.2.0          
+scipy == 1.10.0          
+tensorboard == 2.11.0                  
+torchgeometry == 0.1.2    
+opencv-python               

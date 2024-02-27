@@ -1,0 +1,16 @@
+Train:
+  epochs: 150
+  batch_size: 32
+  num_experts: 10
+
+  start_goal: 428
+  start_gating: 639
+  dim_gating: 416
+  h_state: 512
+  h_goal: 512
+
+  root_dir: trained_models/
+  ckpt_name: l_nsm
+  data_path: ../data/l_nsm_data_processed
+
+

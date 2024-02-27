@@ -1,0 +1,343 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>BvhImporterExporterDemo1.1.0</name>
+    </assembly>
+    <members>
+        <member name="T:Winterdust.BVH">
+            <summary>BvhImporterExporterDemo 1.1.0 (Winterdust, Sweden). Representation of motion capture in the Biovision Hierarchy format.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.VERSION">
+            <summary>This build: BvhImporterExporterDemo 1.1.0 (Winterdust, Sweden)</summary>
+        </member>
+        <member name="F:Winterdust.BVH.pathToBvhFileee">
+            <summary>The path that was given to the constructor accepting "pathToBvhFile". Is null if the other constructor was used.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.alias">
+            <summary>The alias of this BVH instance. If the constructor accepting "pathToBvhFile" was used then the alias is the file name, excluding extension. If the other constructor was used it is simply set to bvh_X_Y, where X is bvhFile.Length and Y is the sum of all string lengths inside the bvhFile array. Any new AnimationClip created from this BVH instance will get its name from this string, you are free to change the alias to something else if you want to.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.allBones">
+            <summary>All bones and their data. The first (and often only) root bone is always at index 0. A child bone will always have a higher index than its parent (if you modify the array manually make sure to follow this rule). Important: bones.Length can't be trusted, use boneCount instead.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.boneCount">
+            <summary>The actual number of bones. Can be lower or equal to bones.Length.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.secondsPerFrame">
+            <summary>Frame rate of the animation. You can change this before calling makeAnimationClip(), a higher number will slow down the animation. Use getFPS() and setFPS() if that measurement is more comfortable. Note: Stored as a double for better accuracy during calculations but any created animation will still have float time values. Also: Lowering frame rate doesn't remove any frame data, if your goal is to produce less heavy AnimationClips it's better to reduce importPercentage in the constructor.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.frameCount">
+            <summary>Number of frames in the animation. The first frame is "0" so if you want to access the last frame of the animation you should use "frameCount-1". There is also an extra "frame" outside the animation, frame "-1", which is the rest pose of the skeleton where no bone has any rotation. This "rest pose frame" is NOT counted into frameCount.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.duplicate">
+            <summary>Creates a brand new BVH instance, copies all the data from THIS instance over to the new one and returns the new BVH instance. Changes to the old instance will not affect the new one and vice versa. (This is the only non-static method with a BVH return that does NOT return the same instance for chaining purposes.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.#ctor(System.String,System.Double,System.Boolean,System.Int32,System.Int32,System.Boolean,System.Boolean,System.Boolean,System.Boolean,Winterdust.BVH.ProgressTracker)">
+            <summary>Loads a .bvh file found at the given path using UTF8 encoding. See each parameter description for full information.</summary>
+            <param name="pathToBvhFile">Path to the .bvh text file. Can be absolute or relative to the program's working directory. Line endings may be marked by a single line feed character or a carriage return character and line feed character together.</param>
+            <param name="importPercentage">You can reduce import time by reducing the number of keyframes to process. Setting importPercentage to 0.5 will skip every second frame in the .bvh file, which halves the number of frames but doubles the duration each frame is shown. 0.25 will turn 120 FPS into 30 FPS. Set this to a negative value to auto-adjust the importPercentage so that the animation get at most importPercentage*-1 FPS. Example: If importPercentage is -25 and you import a 30 FPS bhv file the importPercentage will auto-adjust to 0.8333 and the animation will end up at 25 FPS (a 15 FPS at will keep all its frames and end up at the original 15 FPS). You can't have a importPercentage of 0 (will become 1). If you don't care about the animation keep this at 1 and instead set parseMotionData to false. Tip: A shaky high FPS .bvh file will not only take less time to import with a lower importPercentage, it might appear smoother too. Tip: Try setting this to -10. Thanks to interpolation in the AnimationClip you might not notice much of a quality drop.</param>
+            <param name="zUp">Y is up in the BVH format but some programs use Z as up when they create the .bvh file (or change Y to Z when they import a .bvh file and then don't change back upon export). Try setting this to true if your imported skeleton appears to be laying down instead of standing up. Note: This only has meaning during import, once the constructor is done Y is always up in the skeleton.</param>
+            <param name="calcFDirFromFrame">Used together with calcFDirToFrame to determine which frames to use when calling calculateForwardDirectionOfAnimation() at the end of the constructor. If the default from 0 to -1 (the last frame of the animation) gives a poor forward you can pick two that defines the general direction of the animation better. Example: If the first root bone in your animation goes forward and then returns to a location to the left of the start position it would be better to only use the first half of the animation to calculate its forward direction, since using the first and last frames alone would give the impression of it going to the left.</param>
+            <param name="calcFDirToFrame">Used together with calcFDirFromFrame to determine which frames to use when calling calculateForwardDirectionOfAnimation() at the end of the constructor. Tip: If you set calcFDirFromFrame and calcFDirToFrame to the same value calculateForwardDirectionOfAnimation() will always return Vector3.forward. Note: If the correct forward can't be calculated you can simply give it to the BVH instance by calling feedKnownForward() or feedKnownRotation() after the constructor returns.</param>
+            <param name="ignoreRootBonePositions">Ignoring root bone positions will place all root bones at the skeleton origin. This means that if you have more than one root bone they will all have the same position.</param>
+            <param name="ignoreChildBonePositions">Ignoring child bone positions saves import time since they are usually not moved anyway in most .bvh files (of course even more time is saved if they only have rotations specified in the .bvh file to begin with).</param>
+            <param name="fixFrameRate">Fixing the frame rate will make for example "Frame Time: 0.0333333" in a .bvh file equal 30.0 FPS instead of 30.00003000003 FPS due to floating point inaccuracy.</param>
+            <param name="parseMotionData">If you wish to only peek at a .bvh file (to for example only read its frame rate) you can set parseMotionData to false. This will make the constructor very fast, especially for long animations. However, only the rest pose will be available for all frames and calculated forward direction will always be Vector3.forward since nothing moves.</param>
+            <param name="progressTracker">If you wish to check the status of the importation from a different thread in your program you can give a BVH.ProgressTracker here. Otherwise keep this as null.</param>
+        </member>
+        <member name="M:Winterdust.BVH.#ctor(System.String[],System.Double,System.Boolean,System.Int32,System.Int32,System.Boolean,System.Boolean,System.Boolean,System.Boolean,Winterdust.BVH.ProgressTracker)">
+            <summary>Loads the given .bvh file content. See each parameter description for full information.</summary>
+            <param name="bvhFile">The content of the .bvh text file. Each string in the given array should be a line in the text file.</param>
+            <param name="importPercentage">You can reduce import time by reducing the number of keyframes to process. Setting importPercentage to 0.5 will skip every second frame in the .bvh file, which halves the number of frames but doubles the duration each frame is shown. 0.25 will turn 120 FPS into 30 FPS. Set this to a negative value to auto-adjust the importPercentage so that the animation get at most importPercentage*-1 FPS. Example: If importPercentage is -25 and you import a 30 FPS bhv file the importPercentage will auto-adjust to 0.8333 and the animation will end up at 25 FPS (a 15 FPS at will keep all its frames and end up at the original 15 FPS). You can't have a importPercentage of 0 (will become 1). If you don't care about the animation keep this at 1 and instead set parseMotionData to false. Tip: A shaky high FPS .bvh file will not only take less time to import with a lower importPercentage, it might appear smoother too. Tip: Try setting this to -10. Thanks to interpolation in the AnimationClip you might not notice much of a quality drop.</param>
+            <param name="zUp">Y is up in the BVH format but some programs use Z as up when they create the .bvh file (or change Y to Z when they import a .bvh file and then don't change back upon export). Try setting this to true if your imported skeleton appears to be laying down instead of standing up. Note: This only has meaning during import, once the constructor is done Y is always up in the skeleton.</param>
+            <param name="calcFDirFromFrame">Used together with calcFDirToFrame to determine which frames to use when calling calculateForwardDirectionOfAnimation() at the end of the constructor. If the default from 0 to -1 (the last frame of the animation) gives a poor forward you can pick two that defines the general direction of the animation better. Example: If the first root bone in your animation goes forward and then returns to a location to the left of the start position it would be better to only use the first half of the animation to calculate its forward direction, since using the first and last frames alone would give the impression of it going to the left.</param>
+            <param name="calcFDirToFrame">Used together with calcFDirFromFrame to determine which frames to use when calling calculateForwardDirectionOfAnimation() at the end of the constructor. Tip: If you set calcFDirFromFrame and calcFDirToFrame to the same value calculateForwardDirectionOfAnimation() will always return Vector3.forward. Note: If the correct forward can't be calculated you can simply give it to the BVH instance by calling feedKnownForward() or feedKnownRotation() after the constructor returns.</param>
+            <param name="ignoreRootBonePositions">Ignoring root bone positions will place all root bones at the skeleton origin. This means that if you have more than one root bone they will all have the same position.</param>
+            <param name="ignoreChildBonePositions">Ignoring child bone positions saves import time since they are usually not moved anyway in most .bvh files (of course even more time is saved if they only have rotations specified in the .bvh file to begin with).</param>
+            <param name="fixFrameRate">Fixing the frame rate will make for example "Frame Time: 0.0333333" in a .bvh file equal 30.0 FPS instead of 30.00003000003 FPS due to floating point inaccuracy.</param>
+            <param name="parseMotionData">If you wish to only peek at a .bvh file (to for example only read its frame rate) you can set parseMotionData to false. This will make the constructor very fast, especially for long animations. However, only the rest pose will be available for all frames and calculated forward direction will always be Vector3.forward since nothing moves.</param>
+            <param name="progressTracker">If you wish to check the status of the importation from a different thread in your program you can give a BVH.ProgressTracker here. Otherwise keep this as null.</param>
+        </member>
+        <member name="M:Winterdust.BVH.feedKnownForward(UnityEngine.Vector3)">
+            <summary>(This is typically called right after the constructor returns and then never called again.) Changes the definition of what should be considered the animation's forward direction. This method does nothing on its own except change the internal animationRotation Quaternion to the value represented by the given forward, which affects future calls to setAnimationRotation(), rotateAnimationBy(), align() and normalize(). (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.feedKnownRotation(Quaternion.LookRotation(knownForwardDirectionOfAnimation.normalized, Vector3.up));</summary>
+        </member>
+        <member name="M:Winterdust.BVH.feedKnownRotation(UnityEngine.Quaternion)">
+            <summary>(This is typically called right after the constructor returns and then never called again.) Changes the definition of what should be considered the animation's rotation. This method does nothing on its own except change the internal animationRotation Quaternion to the given value, which affects future calls to setAnimationRotation(), rotateAnimationBy(), align() and normalize(). (Returns this BVH instead of void, for chaining.) Tip: You can create knownRotationOfAnimation with euler angles via Quaternion.Euler(degRotX, degRotY, degRotZ)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.scale(System.Single)">
+            <summary>Multiplies the localRestPosition, endPosition and localFramePositions of all bones by the given amount. (Returns this BVH instead of void, for chaining.) Note: This changes the positions without storing their original values, myBvh.scale(2).scale(1) will not return the skeleton to its original scale. Remember that you can scale the transform of the skeletonGO returned by makeSkeleton()/makeDebugSkeleton() as well, without needing to modify the BVH instance.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.ToString">
+            <summary>Returns a string in this format: BVH "file name minus extension" (# bones, # frames, # FPS, #.# sec).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getDurationSec">
+            <summary>Returns how many seconds long the whole animation is. Note: This is a shortcut for myBvh.secondsPerFrame*myBvh.frameCount</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getFPS">
+            <summary>Returns the frame rate of the animation in terms of frames per second instead of vice versa. Note: This is a shortcut for 1/myBvh.secondsPerFrame</summary>
+        </member>
+        <member name="M:Winterdust.BVH.setFPS(System.Double)">
+            <summary>Sets the frame rate of the animation to the given frames per second, a higher number will speed up the animation. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.secondsPerFrame=1/framesPerSecond; Also: Lowering frame rate doesn't remove any frame data, if your goal is to produce less heavy AnimationClips it's better to reduce importPercentage in the constructor.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.makeSkeleton(System.Int32,System.Boolean,System.String,System.Boolean)">
+            <summary>Makes a skeleton from the current state of the bones. See each parameter description for full information.</summary>
+            <returns>The skeletonGO, which is a hierarchy of GameObjects.</returns>
+            <param name="frame">Use frame -1 to put the skeleton into its rest pose. 0 puts the skeleton into the first frame of the animation, myBvh.boneCount-1 equals the last frame. Note: Some .bvh files will place an improved rest pose in the first frame.</param>
+            <param name="includeBoneEnds">A "bone end" is not a bone itself but the end position of for example a head or finger bone. They have the name of their parent (the actual bone) plus "End" added as a suffix. These have no animation data themselves but can be used to for example put a hat on top of a head.</param>
+            <param name="skeletonGOName">This simply decides the name of the returned GameObject. You can rename it later as usual with skeletonGO.name if you want to, though renaming a skeletonGO could break compatibility with AnimationClips if pathToSkeletonGO was not empty when calling makeAnimationClip().</param>
+            <param name="animate">Calls the static BVH.animateSkeleton(returningSkeletonGO, myBvh.makeAnimationClip(), 1); if animate is true, animating the skeleton with an AnimationCLip created from the default parameters of makeAnimationClip().</param>
+        </member>
+        <member name="M:Winterdust.BVH.moveSkeleton(UnityEngine.GameObject,System.Int32)">
+            <summary>Rearranges an existing skeleton to the given frame (changes both positions and rotations). Use frame -1 to put the skeleton into its rest pose. Does not touch GameObjects representing bone ends. (Returns this BVH instead of void, for chaining.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.makeDebugSkeleton(System.Boolean,System.String,System.Single,System.Int32,System.Boolean,System.Boolean,System.String,System.Boolean)">
+            <summary>Makes a skeleton from the current state of the bones and adds a BVHDebugLines component to it so it becomes visible like a stick figure. See each parameter description for full information. Note: Lines are simply drawn between the bone heads (and ends). Some programs visualize skeletons by drawing from the bone head to their own tail and then to the child's head. So the skeleton might appear to be different here but it is just visualized differently. You can use calculateTail() on a BVHBone in the allBones[] array if you ever need a bone's tail (all bones have a tail, even if they don't have a endPosition set).</summary>
+            <returns>The skeletonGO, which is a hierarchy of GameObjects.</returns>
+            <param name="animate">Calls the static BVH.animateSkeleton(returningSkeletonGO, myBvh.makeAnimationClip(), 1); if animate is true, animating the skeleton with an AnimationCLip created from the default parameters of makeAnimationClip().</param>
+            <param name="colorHex">You can change the line (and mesh) color from the default white by specifying a HTML hex color.</param>
+            <param name="jointSize">If jointSize is not 0 a mesh will be rendered on every bone joint and any bone ends. The square surface faces the transform's up and the triangle surface the transform's forward. You can give a negative jointSize to make the surfaces face the skeleton's up/forward instead, which is always Vector3.up and Vector3.forward. Note: The skeleton's forward shouldn't be confused with the animation's forward. The animation can be rotated but the skeleton's rotation is always considered to be Quaternion.identity (though you can of course rotate/scale/reposition the transform of a created skeletonGO freely if you want to).</param>
+            <param name="frame">Use frame -1 to put the skeleton into its rest pose. 0 puts the skeleton into the first frame of the animation, myBvh.boneCount-1 equals the last frame.</param>
+            <param name="xray">Set this to true if you want to be able to see the lines even if they are behind something else.</param>
+            <param name="includeBoneEnds">A "bone end" is not a bone itself but the end position of for example a head or finger bone. They have the name of their parent (the actual bone) plus "End" added as a suffix. These have no animation data themselves but can be used to for example put a hat on top of a head.</param>
+            <param name="skeletonGOName">This simply decides the name of the returned GameObject. You can rename it later as usual with skeletonGO.name if you want to, though renaming a skeletonGO could break compatibility with AnimationClips if pathToSkeletonGO was not empty when calling makeAnimationClip().</param>
+            <param name="originLine">Set this to true if you want a line to be drawn from the skeleton origin to the root bone(s).</param>
+        </member>
+        <member name="M:Winterdust.BVH.makeDebugSkeletons(System.Int32,System.Int32,System.Boolean,System.Boolean,System.String)">
+            <summary>Makes several debug skeletons that together visualize the whole animation at once (or a part of the animation if you change fromFrame/toFrame). The stick figures shift from green to yellow to red, where green is the beginning and red is the end. Xray will make the skeletons visible through walls.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.shiftAnimation(System.Int32)">
+            <summary>Shifts all localFramePositions and localFrameRotations on all bones. If -1 is given the last frame becomes the first frame. If 1 is given the second frame becomes the first frame. (Returns this BVH instead of void, for chaining.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getBoneIndex(System.String,System.Boolean)">
+            <summary>Loops through the bones and returns the first one with the given relative path. Example of a relativePath to the bone named Head: "Hips/ToSpine/Spine/Spine1/Neck/Head". If alsoCheckJustName is true you can just have the bone's name as relativePath and the first bone by that name is returned. The returned integer is the index in the bones[] struct array of this BVH instance. -1 is returned if no match is made.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.makeAnimationClip(System.Int32,System.Int32,System.Boolean,System.String,UnityEngine.WrapMode,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>Creates an AnimationClip from the current state of the BVH instance. At least 2 frames are required to make a healthy AnimationClip. See each parameter description for full information. Note: This method must be called from Unity's main thread, use prepareAnimationClip() when calling from a different thread. Tip: You can make less heavy AnimationClips by reducing importPercentage in the constructor. Since keyframes are interpolated it's usually not easy to notice any difference in animation quality and as a bonus the import time is reduced. Try setting importPercentage in the constructor to -10 (meaning "auto-adjust to 10 FPS") and increase it only if needed.</summary>
+            <returns>The animation clip, ready to be used by an Animation component (legacy) or in an Animator (mecanim).</returns>
+            <param name="fromFrame">Keep 0 to start the animation from the first frame. If the first frame is a T-pose you can put 1 here to skip it.</param>
+            <param name="toFrame">Keep -1 to end the animation on the last frame. Note: Reverse animations are possible (from -1 to 0 will reverse the whole thing).</param>
+            <param name="addExtraLoopKeyframe">When true a copy of the first keyframe is added to the end of the animation for seamless looping. Usually not needed if the .bvh file was created for seamless looping in the first place.</param>
+            <param name="pathToSkeletonGO">If the Animation (or Animator) component that is supposed to use this AnimationCLip is not on the skeletonGO itself but on a GameObject that contains the skeleton GameObject you can add the path here. Example: You have a GameObject hierarchy "Level/MyModel/MySkeleton/Hips/etc..." ("Level" has no parent). The skeletonGO is "MySkeleton" but the Animation component is on "MyModel". pathToSkeletonGO should then be "MySkeleton". Had the hierarchy been "Level/MyModel/MyContainer/MySkeleton/Hips/etc..." the correct pathToSkeletonGO would be "MyContainer/MySkeleton".</param>
+            <param name="wrapMode">If you want to make the animation play back and forth you can give WrapMode.PingPong here instead of the default WrapMode.Loop. This simply sets the "wrapMode" property of the AnimationClip.</param>
+            <param name="legacy">If you want to use the AnimationClip with the Animator component (via a AnimatorOverrideController for example) you can turn off legacy here to make it compatible with the Mecanim system. This simply sets the "legacy" property of the AnimationClip.</param>
+            <param name="keyRestPositions">If the bone doesn't have any localFramePositions it is usually a good idea to only key the bone's rotation. That way the AnimationClip can be used on any skeletonGO and the length of each bone (the distance between the parent Transforms and their child Transforms) doesn't matter since they will just rotate. But if you need the positions to always be keyed the option is available here.</param>
+            <param name="keyEndPositions">It's usually not a good idea to key the end positions of bones since they are not real joints and their Transform should just always go along with the movement of its parent. But if you want to key the end positions the option is available here. Note: End rotations are never keyed since they should always be Quaternion.identity.</param>
+        </member>
+        <member name="M:Winterdust.BVH.prepareAnimationClip(System.Int32,System.Int32,System.Boolean,System.String,UnityEngine.WrapMode,System.Boolean,System.Boolean,System.Boolean,Winterdust.BVH.ProgressTracker)">
+            <summary>Creates a PreparedAnimationClip that you can call make() on to make an actual AnimationClip. The idea is that you can call this method from a secondary thread to prepare the clip during your game's loading phase and then later make() it on the main thread (a new AnimationClip may only be created on Unity's main thread, including setting its curves). If you wish to check the status of the preparation from a different thread in your program you can give a BVH.ProgressTracker here. See the description of makeAnimationClip() for full information about the method and its parameters.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.makeEmpty">
+            <summary>Creates a brand new instance of BVH that is completely empty and returns it, in case you want to build your own BVH from scratch. (This method gives access to a private BVH constructor that takes no parameters, all makeEmpty() does is "return new BVH();".)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.animateSkeleton(UnityEngine.GameObject,UnityEngine.AnimationClip,System.Single)">
+            <summary>Convenience method for adding an Animation component to the given skeletonGO, adding the given AnimationClip to the Animation and then playing it. If the skeletonGO already has an Animation component the given AnimationClip is added to its list of clips and is then played, with a crossover time in seconds from any old animation. Note: This method will maintain max three clips in the list. Old clips are replaced as needed. Add clips manually to the returned Animation component instead of calling animateSkeleton() again if you wish to have more control.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.centerXZ">
+            <summary>Makes it so that the first root bone's rest position and animation origin is at [0,?,0] of the skeleton, where ? is the original value of its position on the up axis (Y). I recommend calling this AFTER any rotation methods, including align(), since the rest pose usually isn't repositioned by rotateAnimationBy() unless alsoAffectRestPose is true. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.setAnimationOrigin(Vector3.zero, true, false, true, false);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.center(System.Boolean,System.Boolean,System.Boolean)">
+            <summary>Makes it so that the first root bone's rest position and animation origin is at [0,0,0] of the skeleton, unless you set to keep any of XYZ. I recommend calling this AFTER any rotation methods, including align(), since the rest pose usually isn't repositioned by rotateAnimationBy() unless alsoAffectRestPose is true. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.setAnimationOrigin(Vector3.zero, true, keepOldX, keepOldY, keepOldZ);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.setAnimationOrigin(UnityEngine.Vector3,System.Boolean,System.Boolean,System.Boolean,System.Boolean)">
+            <summary>Repositions the whole animation by moving the first root bone on all frames. Your given position becomes the origin. Any other root bones are also moved to keep their offset relative to the first root bone's new locations. In effect this repositions the whole skeleton on all frames. I recommend calling this AFTER any rotation methods, including align(), since the rest pose usually isn't repositioned by rotateAnimationBy() unless alsoAffectRestPose is true. (Returns this BVH instead of void, for chaining.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.calculateForwardDirectionOfAnimation(System.Int32,System.Int32)">
+            <summary>Returns the forward direction calculated from the position of the first root bone at the given frames (the default from 0 to -1 means the first and last frames are used). Vector3.forward is returned if the root bone never moves or if fromFrame is the same as toFrame. This method is used once at the end of the constructor to determine the animation's rotation. Note: The returned Vector3 from this method might not be the same as the returned Vector3 from getAnimationForward().</summary>
+        </member>
+        <member name="M:Winterdust.BVH.setAnimationRotation(UnityEngine.Quaternion)">
+            <summary>Rotates the whole animation so its new rotation becomes the given one. If you want to just change the definition of what should be considered the animation's rotation use feedKnownRotation() instead. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.rotateAnimationBy(Quaternion.Inverse(myBvh.getAnimationRotation()) * newRotation, false, false);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getAnimationRotation">
+            <summary>Returns the current rotation of the Animation. It is decided in the constructor by calculateForwardDirectionOfAnimation(). The rotation can change by calling setAnimationRotation(), rotateAnimationBy(), align() or normalize(). It can also be redefined via feedKnownForward() or feedKnownRotation(), those two does not change anything in the BVH but simply sets the animationRotation directly - redefining what should be considered up/down/left/right.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getAnimationForward">
+            <summary>The forward direction of the animation. Note: This is a shortcut for myBvh.getAnimationRotation()*Vector3.forward</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getAnimationRight">
+            <summary>The right direction of the animation. Note: This is a shortcut for myBvh.getAnimationRotation()*Vector3.right</summary>
+        </member>
+        <member name="M:Winterdust.BVH.getAnimationUp">
+            <summary>The up direction of the animation. Note: This is a shortcut for myBvh.getAnimationRotation()*Vector3.up</summary>
+        </member>
+        <member name="M:Winterdust.BVH.flattenAnimationForward">
+            <summary>Restricts all root bones from moving forward/back from their rest positions while still being able to move in the relative up/down/left/right directions. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.flattenAnimation(myBvh.getAnimationForward(), 0, -1);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.flattenAnimationRight">
+            <summary>Restricts all root bones from moving left/right from their rest positions while still being able to move in the relative forward/back/up/down directions. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.flattenAnimation(myBvh.getAnimationRight(), 0, -1);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.flattenAnimationUp">
+            <summary>Restricts all root bones from moving up/down from their rest positions while still being able to move in the relative forward/back/left/right directions. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.flattenAnimation(myBvh.getAnimationUp(), 0, -1);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.flattenAnimation(UnityEngine.Vector3,System.Int32,System.Int32)">
+            <summary>Restricts all root bones from moving from their rest positions on the given axis. Affects all frames unless you change fromFrame/toFrame. (Returns this BVH instead of void, for chaining.) Tip: Giving a direction is okay, movement will just be restricted in the reverse direction as well. You can multiply a Quaternion with the animation's forward to get the desired axis: myBvh.flattenAnimation(myQuaternion*myBvh.getAnimationForward(), 0, -1);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.flattenAnimation(System.Boolean,System.Boolean,System.Boolean,System.Int32,System.Int32)">
+            <summary>Restricts all root bones from moving from their rest positions on X/Y/Z. Affects all frames unless you change fromFrame/toFrame. (Returns this BVH instead of void, for chaining.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.normalize(System.Boolean)">
+            <summary>Makes this BVH's animation more compatible with other BVH animations. Depends heavily on the animation having a constant direction. If the animation doesn't "go anywhere" (stays pretty much in the same place, for example someone standing still) it might be best to set flattenForward to false. If the first root bone does not move a lot between the first and last frame, or if it doesn't move in a somewhat straight line, you probably need to call feedKnownForward() or feedKnownRotation() after the BVH constructor returns. Just setting both calcFDirFromFrame and calcFDirToFrame to -1 in the constructor works well in many cases though. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.align().center().flattenAnimationForward(); (or just myBvh.align().center(); of if flattenForward is false).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.align">
+            <summary>Rotates the whole animation so its forward direction becomes Vector3.forward. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.rotateAnimationBy(Quaternion.Inverse(myBvh.getAnimationRotation()) * Quaternion.LookRotation(Vector3.forward, Vector3.up), false, false);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.align(UnityEngine.Vector3)">
+            <summary>Rotates the whole animation so it gets the given forward direction. (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.rotateAnimationBy(Quaternion.Inverse(myBvh.getAnimationRotation()) * Quaternion.LookRotation(newForwardDirection, Vector3.up), false, false);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.rotateAnimationBy(UnityEngine.Quaternion,System.Boolean,System.Boolean)">
+            <summary>Rotates the whole animation on all frames by the given amount (not frame -1 unless alsoAffectRestPose is true). Rotating bones in their rest pose is tricky because each bone only have a Vector3 stored for it in the BVH format, no Quaternion. Same with end positions. So frame -1 can really only be repositioned, not rotated. And if the rest positions change all bones will have to store their positions for all their frames from now on, not just rotations as is usually the case. Rotating the rest pose will also always makes bone ends incorrect for either frame -1 or all other frames because no rotational or positional data about the ending can be stored for each frame (since it's not an actual bone). Set alsoAffectRestPoseBoneEnds to true to have bone ends correct in the rest pose, set it to false to have bone ends correct in the animation. If alsoAffectRestPose is false it doesn't matter, then this method becomes pretty light because it only rotates the root bones on all their frames except -1, using the skeleton origin as pivot point. (Returns this BVH instead of void, for chaining.) Remember that you can rotate the transform of the skeletonGO returned by makeSkeleton()/makeDebugSkeleton() as well, without needing to modify the BVH instance. Tip: You can use Quaternion.Euler(degX, degY, degZ); to create a rotation.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.removeFrame(System.Int32)">
+            <summary>Removes a frame from the animation (the default 0 removes the first frame). The given "f" works like a "fromFrame", meaning that -1 does NOT mean the rest pose, it means the last frame. Remember that if you want to keep the first frame in the BVH instance but skip it in the AnimationClip you can call myBvh.makeAnimationClip(1). (Returns this BVH instead of void, for chaining.) Note: This is a shortcut for myBvh.removeFrames(f, f);</summary>
+        </member>
+        <member name="M:Winterdust.BVH.removeFrames(System.Int32,System.Int32)">
+            <summary>Removes one or more frames from the animation. From 0 to 9 would remove the first 10 frames. From -10 to -1 would remove the last 10 frames. From 0 to -1 would clear everything, causing makeAnimationClip() to stop working. (Returns this BVH instead of void, for chaining.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.removeFramesExcept(System.Int32,System.Int32)">
+            <summary>Removes all frames except the ones you specify. From 10 to -11 would remove the first 10 frames and the last 10 frames. From 0 to 0 would leave only one frame left, causing makeAnimationClip() to not produce a healthy AnimationClip. (Returns this BVH instead of void, for chaining.)</summary>
+        </member>
+        <member name="M:Winterdust.BVH.writeToDisk(System.String,System.Boolean,System.Boolean)">
+            <summary>Puts together a brand new .bvh file from the current state of the bones and saves it. See each parameter description for full information. (Returns this BVH instead of void, for chaining.) Note 1: The rotation order in the CHANNELS are always written as "Zrotation Xrotation Yrotation". Note 2: Bones that should get a "End Site"-block but has a endPosition equal to Vector3.zero will get "0 0.5 0" as its End Site OFFSET. Note 3: The "Frame Time" gets max 7 digits to the right of "." with no rounding. Other floats may have any number of digits to the right of ".". Note 4: A number may not have any "." at all (zero is "0", not "0.0") but there is always at least one digit on each side of "." if it's there (".123" format is not used). Note 5: Degrees goes from -180.0 to 179.999...</summary>
+            <returns>This BVH instance, for possible chaining of method calls on the same line.</returns>
+            <param name="pathToNewBvhFile">Path pointing to a location inside your computer's filesystem where the ASCII text file will end up. Note: Will always write to "X.#.tmp" and then move it into place upon successful flushing (X is the given pathToNewBvhFile and # is a 8 digit random number).</param>
+            <param name="overwrite">This method throws an IOException if the file already exists and overwrite is false.</param>
+            <param name="useTabs">If false two spaces will be used instead of a tab in the HIERARCHY section of the .bvh file.</param>
+        </member>
+        <member name="M:Winterdust.BVH.getBoneNames">
+            <summary>Returns the names of all bones, in the order they are listed in the allBones[] array.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.setBoneNames(System.String[])">
+            <summary>Sets the names of all bones, in the order they are listed in the allBones[] array. Assumes that boneNames.Length==boneCount. (Returns this BVH instead of void, for chaining.) Tip: Use getBoneNames() to get a compatible array, change the name(s) you want to change and then give the modified array to setBoneNames().</summary>
+        </member>
+        <member name="M:Winterdust.BVH.replaceBoneNames(System.String[],System.Boolean)">
+            <summary>Replaces bone name [i] with bone name [i+1]. Letter case is ignored, otherwise the name must match exact to be replaced. Assumes that boneNamePairs.Length%2==0, in other words the given array should be divisible by two. If allowDuplicateBoneNames is false an IOException will be thrown if two bones would end up with the same name, otherwise its not regarded as an issue and is ignored. (Returns this BVH instead of void, for chaining.) Example: myBvh.replaceBoneNames(new string[] {"lclavicle", "LeftShoulder", "neck", "Head", "head", "Neck"}); Here the bone named "LClavicle" will be renamed to "LeftShoulder" and the bones "Neck" and "Head" will swap their names (notice that the already changed "Neck" will not get changed back even though it matches "Head" afterwards). The strings in lower-case are the case-insensitive strings that will be compared to the already existing bone names.</summary>
+        </member>
+        <member name="T:Winterdust.BVH.BVHBone">
+            <summary>Representation of a bone in the .bvh file. Together they make up a skeleton. Usually there is only one root bone but more are allowed in the format. Note: The X values of positions are flipped here compared to how they were stored in the .bvh file (e.g. -100 becomes 100). If myBvh.writeToDisk() is used they are flipped back in the new .bvh file.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.relativePath">
+            <summary>The bone's place in the skeleton. It's name is the last part of this string, you can use getName() to extract it. Important: If you ever "remove a bone" by reducing myBvh.boneCount (meaning the bone data is still in the allBones[] array) you need to set its relativePath to null! Otherwise findChildBoneIndexes() won't know the bone was removed. Example relativePath: Hips/LowerBack/Spine/Spine1/LeftShoulder/LeftArm/LeftForeArm/LeftHand/LeftFingerBase/LeftHandIndex1</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.parentBoneIndex">
+            <summary>The index in myBvh.allBones that contains this bone's parent. Is -1 if this bone is a root bone.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.localRestPosition">
+            <summary>The bone's beginning (head), counted from the parent's localRestPosition (the parent's origin - or the skeleton origin if there is no parent).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.endPosition">
+            <summary>The bone's given end, counted from localRestPosition (from this bone's origin - NOT the parent's origin). Is Vector3.zero (has 0 magnitude/sqrMagnitude) if no end has been specified. Bones without any child bones usually have a endPosition instead. Tip: Use calculateTail() if you need to get a bone's end even if it didn't get one specified.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.localFramePositions">
+            <summary>The bone's positions for each frame. If the bone does not have any positions (only rotations) this array is null. Note: Use myBvh.frameCount to determine the number of frames in an animation, localFramePositions.Length might not be reliable if for example myBvh.removeFrame() has been called.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.localFrameRotations">
+            <summary>The bone's rotations for each frame. This array is never null. Note: Use myBvh.frameCount to determine the number of frames in an animation, localFrameRotations.Length might not be reliable if for example myBvh.removeFrame() has been called.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.BVHBone.channels">
+            <summary>Representation of the bone's channels in the .bvh file (the order of its frame data). Created and read using bitwise operations. See summary for defineChannels() for more info. Example: 786571 translates to "Zrotation Xrotation Yrotation" and 1644460 to "Xposition Yposition Zposition Zrotation Xrotation Yrotation" (any order is supported but these two are the most common ones and .bvh files using them gets a minor speed boost during import).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.duplicate">
+            <summary>Creates a brand new BVHBone instance, copies all the data from THIS instance over to the new one and returns the new BVHBone instance. Changes to the old instance will not affect the new one and vice versa.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.getWorldMatrix(Winterdust.BVH.BVHBone[]@,System.Int32)">
+            <summary>Returns the representation of this bone's position and rotation in the (skeleton) world space.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.defineChannels(System.String@)">
+            <summary>Defines the "channels"-field of this BVHBone using bitwise operations. Input is the whole "CHANNELS"-line in the .bvh file. Three bits per "slot", 7 slots used. Meaning of values in the first six slot (bits 1-18 counted from the right): int1=Xrotation, int2=Yrotation, int3=Zrotation, int4=Xposition, int5=Yposition, int6=Zposition. Slot seven (bits 19-21 counted from the right) contains an integer that equals the number of channels (how many of the first six slots that are used). Return value is the number of channels used by this bone.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.defineLocalRestPosition(System.String@,System.Boolean@)">
+            <summary>Defines the "localRestPosition"-field of this BVHBone. Input is the whole "OFFSET"-line in the .bvh file (the one above the "CHANNELS"-line).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.defineEndPosition(System.String@,System.Boolean@)">
+            <summary>Defines the "endPosition"-field of this BVHBone. Input is the whole "OFFSET"-line in the .bvh file (the one inside the "End Site"-block).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.calculateTail(Winterdust.BVH.BVHBone[]@,System.Int32)">
+            <summary>Returns the bone's tail, calculated from its children. The position is counted from localRestPosition (from this bone's origin - NOT the parent's origin). If the bone has one child the child's localRestPosition is returned. If the bone has more than one child the average of all the children's localRestPosition is returned. If the bone has no child and it has been given an end position the endPosition is returned. Otherwise "new Vector3(0, 0.5f, 0);" is returned (half of Vector3.up). Note: Vector3.zero can be returned if the bone's child has offset 0,0,0 (meaning the same position as its parent).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.feedFrame(System.Int32@,System.Single[]@,System.Int32@,System.Boolean@)">
+            <summary>Used to parse the motion data (this is not called if parseMotionData is false in the constructor). The frameData[] array is one of the lines containing only floats inside the MOTION section of the .bvh file.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.makeGO(System.Int32@,System.Boolean@,Winterdust.BVH.BVHBone[]@,System.Int32)">
+            <summary>Makes a GameObject that represents this bone, complete with child GameObjects that represents the bone's children. When a skeletonGO is created the BVH instance calls makeGO() on all its root bones and makes the returned GameObjects a child of the skeletonGO (if there is only one root bone the skeletonGO will only have one child itself).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.getName">
+            <summary>Returns the end of this bone's relativePath; the actual name of the bone.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.findMyOwnBoneIndex(Winterdust.BVH.BVHBone[]@)">
+            <summary>Goes through the given array and returns the index of the first BVHBone that has the same relativePath as this BVHBone (meaning it has found itself, as long as all bones have unique relativePaths as they should).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.findChildBoneIndexes(Winterdust.BVH.BVHBone[]@,System.Int32)">
+            <summary>Goes through the given array and returns the indexes of all the child bones of this bone (will check their parentBoneIndex against the given myOwnBoneIndex). If this bone doesn't have any children an empty array is returned.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.BVHBone.setLocalPosRot(UnityEngine.Transform,System.Int32@)">
+            <summary>Sets localPosition/localRotation of the given transform to the bone's local position/rotation at the given frame. If frame -1 is specified the bone's rest pose is used. The rest rotation is always Quaternion.identity. If frame is >=0 and the bone doesn't have any localFramePositions (the array is null) its localRestPosition is used.</summary>
+        </member>
+        <member name="T:Winterdust.BVH.ProgressTracker">
+            <summary>Create an instance of this class and give it to the BVH constructor or myBvh.prepareAnimationClip() if you want to be able to check the progress from a different thread.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.ProgressTracker.progress">
+            <summary>The BVH class writes to this double while working. Is always reset to 0 when work starts. When this is 1.0 the work has finished.</summary>
+        </member>
+        <member name="M:Winterdust.BVH.ProgressTracker.getPercentage(System.Int32,System.Int32)">
+            <summary>Returns a formatted version of percentLoaded. Example: If percentLoaded is 0.5 this will return "50" when decimals is 0 and "50.00" when decimals is 2. Change minimumIntegers if you want a minimum length on the left side of the dot, "050.0000" would be returned if decimals are 4 and minimumIntegers is 3.</summary>
+        </member>
+        <member name="T:Winterdust.BVH.PreparedAnimationClip">
+            <summary>An AnimationClip, just not in existence yet. This can be created by any thread and then finished by Unity's main thread via the make() call. You can call make() several times to make several AnimationClips from the same mould, feel free to change stuff in-between. Note: This is used by both myBvh.prepareAnimationClip() and myBvh.makeAnimationClip().</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.name">
+            <summary>The AnimationClip will get this name.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.legacy">
+            <summary>When false the AnimationClip will work with Mecanim (Animator component), otherwise it will be legacy (Animation component).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.wrapMode">
+            <summary>The AnimationClip will have this wrapMode.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.frameRate">
+            <summary>Animation speed in frames per second used by the AnimationClip.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.data">
+            <summary>The AnimationClip will be fed these during creation via its SetCurve() method. The class type of the animated component is always typeof(Transform).</summary>
+        </member>
+        <member name="M:Winterdust.BVH.PreparedAnimationClip.make">
+            <summary>Creates a brand new AnimationClip from the current fields in this class and returns it. This should only be called from Unity's main thread. EnsureQuaternionContinuity() is called on the clip right before it's returned.</summary>
+        </member>
+        <member name="T:Winterdust.BVH.PreparedAnimationClip.CurveBlock">
+            <summary>Contains all the curves that will animate a GameObject.</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.relativePath">
+            <summary>Path pointing to the GameObject that will have its transform animated. Example: "Hips". Another example: "Hips/ToSpine/Spine/Spine1/Neck/Head".</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.posX">
+            <summary>Unless null this curve will animate the localPosition.x property of the GameObject's transform (part of Vector3).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.posY">
+            <summary>Unless posX is null this curve will animate the localPosition.y property of the GameObject's transform (part of Vector3).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.posZ">
+            <summary>Unless posX is null this curve will animate the localPosition.z property of the GameObject's transform (part of Vector3).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.rotX">
+            <summary>Unless null this curve will animate the localRotation.x property of the GameObject's transform (part of Quaternion).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.rotY">
+            <summary>Unless rotX is null this curve will animate the localRotation.y property of the GameObject's transform (part of Quaternion).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.rotZ">
+            <summary>Unless rotX is null this curve will animate the localRotation.z property of the GameObject's transform (part of Quaternion).</summary>
+        </member>
+        <member name="F:Winterdust.BVH.PreparedAnimationClip.CurveBlock.rotW">
+            <summary>Unless rotX is null this curve will animate the localRotation.w property of the GameObject's transform (part of Quaternion).</summary>
+        </member>
+        <member name="T:Winterdust.BVHDebugLines">
+            <summary>This component is added to all debug skeletons created by the BVH class. It's used to draw colored lines between all transforms and their children, except for the transform that holds this component (unless alsoDrawLinesFromOrigin is true). The "Hidden/Internal-Colored" shader is used and the lines are drawn using the GL class in OnRenderObject().</summary>
+        </member>
+        <member name="F:Winterdust.BVHDebugLines.color">
+            <summary>The color of all the lines.</summary>
+        </member>
+        <member name="F:Winterdust.BVHDebugLines.xray">
+            <summary>Should the lines be visible through walls?</summary>
+        </member>
+        <member name="F:Winterdust.BVHDebugLines.alsoDrawLinesFromOrigin">
+            <summary>When true lines will be drawn from the "root transform" to all its children as well. The "root transform" is the transform of the GameObject that has this BVHDebugLines component.</summary>
+        </member>
+    </members>
+</doc>
