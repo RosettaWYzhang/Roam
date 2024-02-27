@@ -92,7 +92,7 @@ We provide both high-level and low-level modes.
 In the high-level mode, the pipeline runs automatically after hitting the Play button with randomly sampled novel objects from the test set as well as optimized poses from randomly sampled reference poses. 
 
 <p style="text-align: center;">
-    <img src="viz/high_level_demo.gif" height="600" alt="High Level Demo!" title="High Level Demo" />
+    <img src="viz/high_level_demo.gif" alt="High Level Demo!" title="High Level Demo" />
 </p>
 
 To enable low-level mode, please disable the HighLevel option from the Roam_Demo interface and enable the LowLevel object collections. 
@@ -102,7 +102,7 @@ To enable low-level mode, please disable the HighLevel option from the Roam_Demo
 - Feel free to import novel objects and optimized poses from the NDF module!
 
 <p style="text-align: center;">
-    <img src="viz/low_level_demo.gif" height="600" alt="Low Level Demo!" title="Low Level Demo" />
+    <img src="viz/low_level_demo.gif" alt="Low Level Demo!" title="Low Level Demo" />
 </p>
 
 QuantEval.unity is a challenging setup which we used for our quantitative evaluation. The novel objects are randomly sampled from ShapeNet test set and the reference poses are also randomly sampled. 
