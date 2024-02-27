@@ -1,7 +1,9 @@
 
 
+<p style="text-align: center;">
+    <img src="viz/ROAM_3DV_thumbnail.gif" />
+</p>
 
-![Alt Text](ROAM_3DV_thumbnail.gif)
 
 This repostory contains code and data instructions for [ROAM: Robust and Object-aware Motion Generation using Neural Pose Descriptors](https://vcai.mpi-inf.mpg.de/projects/ROAM/).
 
@@ -11,11 +13,12 @@ This repostory contains code and data instructions for [ROAM: Robust and Object-
 git clone ...
 cd ROAM
 ```
+If you are only interested in running the Unity demo, you can skip Step 2, Step 3 and Data Instruction, and directly go to [Roam Unity](#unity).
 
 ## Step 2: Create New Conda Environment
 ```
 conda create --name roam_env python=3.9
-conda activate roam
+conda activate roam_env
 conda install pytorch==1.12.1 torchvision==0.13.1 torchaudio==0.12.1 cudatoolkit=11.3 -c pytorch -c nvidia
 conda install -c fvcore -c iopath -c conda-forge fvcore iopath
 conda install -c bottler nvidiacub
@@ -33,11 +36,9 @@ pip install .
 
 
 # Data Instruction
+This section contains instruction for the type of data you need to download to run or retrain different components of our method.
 You do not need to download any data to run our Unity demo. 
 However, if you would like to retrain l-NSM model, re-process the data or optimizes goal poses, please download the respective zip files from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS) following the instructions below. 
-```
-mkdir data
-```
 
 If you would like to
 - re-train l-NSM using our preprocessed data, please download l_nsm_data_processed.zip from [ROAM dataset](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS), unzip it and put the folder in data/ 
@@ -79,6 +80,8 @@ There are three main components:
 - L_NSM: contains code to train I-NSM
 - NDF: contains goal pose optimization code
 
+<a id="unity"></a>
+
 ## Roam Unity
 Unity version: 2021.3.14 (tested on Windows 10)
 
@@ -88,12 +91,21 @@ We provide both high-level and low-level modes.
 
 In the high-level mode, the pipeline runs automatically after hitting the Play button with randomly sampled novel objects from the test set as well as optimized poses from randomly sampled reference poses. 
 
+<p style="text-align: center;">
+    <img src="viz/high_level_demo.gif" height="600" alt="High Level Demo!" title="High Level Demo" />
+</p>
+
 To enable low-level mode, please disable the HighLevel option from the Roam_Demo interface and enable the LowLevel object collections. 
 - Hit the Play button.
 - Move around with W,A,S,D (Move), Q,E (Turn)
 - Once close to the object, press either C for sitting down, or L for lying down. 
 - Feel free to import novel objects and optimized poses from the NDF module!
 
+<p style="text-align: center;">
+    <img src="viz/low_level_demo.gif" height="600" alt="Low Level Demo!" title="Low Level Demo" />
+</p>
+
+QuantEval.unity is a challenging setup which we used for our quantitative evaluation. The novel objects are randomly sampled from ShapeNet test set and the reference poses are also randomly sampled. 
 
 ### Motion Re-export
 If you want to visualize the annotated motion capture assets or re-export the motion as txt files for l-NSM training, please make sure you have downloaded download [MotionCapture.zip](https://edmond.mpg.de/dataset.xhtml?persistentId=doi:10.17617/3.LR9CAS) following the instruction from Data Instruction.
@@ -159,13 +171,6 @@ Parts of our code are adapted from [AI4Animations](https://github.com/sebastians
 [Couch](https://github.com/xz6014/couch/) and
 [Neural Descriptor Fields](https://github.com/anthonysimeonov/ndf_robot).
 We thank the authors for making the code public. 
-
-# License
-Permission is hereby granted, free of charge, to any person or company obtaining a copy of this software and associated documentation files (the "Software") from the copyright holders to use the Software for any non-commercial purpose. Publication, redistribution and (re)selling of the software, of modifications, extensions, and derivates of it, and of other software containing portions of the licensed Software, are not permitted. The Copyright holder is permitted to publically disclose and advertise the use of the software by any licensee.
-
-Packaging or distributing parts or whole of the provided software (including code, models and data) as is or as part of other software is prohibited. Commercial use of parts or whole of the provided software (including code, models and data) is strictly prohibited. Using the provided software for promotion of a commercial entity or product, or in any other manner which directly or indirectly results in commercial gains is strictly prohibited.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 # Citation
 ```
